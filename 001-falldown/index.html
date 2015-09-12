@@ -1,0 +1,135 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+	<meta charset="UTF-8" />
+    <title>Falldown in Phaser.js</title>
+	<script type="text/javascript" src="phaser2.4.3.js"></script>
+    <style type="text/css">
+        body {
+            background-color: black;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+var game = new Phaser.Game(800, window.screen.availHeight, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+
+function preload() {
+
+    game.load.image('platform', 'assets/platform.png');
+    game.load.spritesheet('dude', 'assets/redblock.png', 16, 32);
+}
+
+var player;
+var platforms;
+var levels;
+var speed = 100;
+var cursors;
+var timeScale = 2;
+var score = 0;
+var scoreText;
+
+var levelHeight = 100;
+
+function increaseSpeed() {
+    if (timeScale < 3.5) {
+        timeScale += 0.01;
+    } else {
+        timeScale += 0.001;
+    }
+}
+
+function insertLevel() {
+    var level = game.add.group();
+    levels.add(level);
+    level.enableBody = true;
+    for (var j=0; j < 2; j++) {
+        var platform = level.create(0, game.world.height + 100, 'platform');
+        platform.body.immovable = true;
+        platform.scale.setTo(2, 1);
+        platform.body.velocity.y = -speed*timeScale;
+    }
+    var A = level.children[0];
+    var B = level.children[1];
+
+    var holePos = 75 + Math.random() * (game.world.width-150);
+    var holeLeft = holePos - 50;
+    var holeRight = holePos + 50;
+
+    A.x = holeLeft - A.width;
+    B.x = holeRight;
+}
+
+function levelInserter() {
+    insertLevel();
+    score += 10;
+    scoreText.text = "Score: " + score;
+    game.time.events.add(Phaser.Timer.SECOND / timeScale*1.7, levelInserter, this);
+}
+
+function create() {
+    game.physics.startSystem(Phaser.Physics.ARCADE);
+    levels = game.add.group();
+
+    // The player and his settings
+    player = game.add.sprite(game.world.width/2-8, 0, 'dude');
+    game.physics.arcade.enable(player);
+    player.body.collideWorldBounds = true;
+
+
+    // Our controls.
+    cursors = game.input.keyboard.createCursorKeys();
+
+
+    // Score
+    scoreText = game.add.text(16, 16, "Score: 0", {fontSize: '32px', fill: '#000'});
+
+    // Insert levels periodically with increasing speed
+    game.time.events.loop(Phaser.Timer.SECOND, increaseSpeed, this);
+    levelInserter();
+}
+
+function update() {
+
+    // Collide the player with every level group.
+    // Loop since collision does not work recursively.
+    levels.forEach(function(level) {
+        game.physics.arcade.collide(player, level);
+
+        if (level.children[0].y < -100) {
+            level.destroy();
+        }
+    });
+
+    // Reset the players velocity
+    player.body.velocity.x = 0;
+    player.body.velocity.y = 400;
+
+    if (player.body.blocked.right && cursors.right.isDown) {
+        player.x = 0;
+    }
+    if (player.body.blocked.left && cursors.left.isDown) {
+        player.x = game.world.width-16;
+    }
+
+    if (cursors.left.isDown)
+    {
+        player.body.velocity.x = -500;
+    }
+    else if (cursors.right.isDown)
+    {
+        player.body.velocity.x = 500;
+    }
+}
+
+</script>
+
+</body>
+</html>
