@@ -1,0 +1,140 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+	<meta charset="UTF-8" />
+    <title>Falldown in Phaser.js</title>
+	<script type="text/javascript" src="phaser2.4.3.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+            margin-top: 30px;
+            background-color: #c1e1f3;
+        }
+        canvas {
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+var game = new Phaser.Game(840, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+
+var player;
+var box;
+var cursors;
+var platforms;
+var screenBottom;
+
+var gravity = 1100;
+var isDead = false;
+
+var go;
+
+function preload() {
+    game.load.image("sky", "assets/sky.png");
+    game.load.image("gameover", "assets/gameover.png");
+    game.load.image("ground", "assets/ground.png");
+    game.load.image("box", "assets/bonus.png");
+    game.load.spritesheet("walk", "assets/character/walk/sheet.png", 75, 96);
+    game.load.image("idle", "assets/character/front.png");
+    game.load.image("jump", "assets/character/jump.png");
+}
+
+
+function create() {
+    game.physics.startSystem(Phaser.Physics.ARCADE);
+    var sky = game.add.sprite(0,0, "sky");
+    sky.scale.setTo(2, 1);
+
+    player = game.add.sprite(200, 200, "walk");
+    player.anchor.setTo(.5, 1);
+    player.animations.add("walk", [3,4,5,6,7,8,9,10,11,12], 20, true);
+    player.animations.add("idle", [0]);
+    player.animations.add("jump", [1]);
+    player.enableBody = true;
+    game.physics.arcade.enable(player);
+    player.body.gravity.y = gravity;
+    player.body.collideWorldBounds = true;
+
+    platforms = game.add.group();
+    platforms.enableBody = true;
+
+    var groundImg = game.cache.getImage("ground");
+    for (var x=0; x < game.world.width; x += groundImg.width) {
+        var ground = platforms.create(x, game.world.height-groundImg.height, "ground");
+        ground.body.immovable = true;
+        platforms.add(ground);
+    }
+
+    screenBottom = game.add.sprite(0, game.world.height, "ground");
+    screenBottom.enableBody = true;
+    game.physics.arcade.enable(screenBottom);
+    screenBottom.body.immovable = true;
+
+    var boxImg = game.cache.getImage("box")
+    box = game.add.sprite(7*boxImg.width, game.world.height - 4*boxImg.height, "box");
+    box.enableBody = true;
+    game.physics.arcade.enable(box);
+    box.body.gravity.y = gravity;
+    box.body.collideWorldBounds = true;
+
+    cursors = game.input.keyboard.createCursorKeys();
+
+}
+
+function gameOver() {
+    if (!isDead) {
+        go = game.add.sprite(0,-0.5*game.world.height, "gameover");
+        go.enableBody = true;
+        game.physics.arcade.enable(go);
+        go.body.gravity.y = 2*gravity;
+        go.body.bounce.y = 0.5;
+    }
+    isDead = true;
+}
+
+function update() {
+    game.physics.arcade.collide(player, platforms);
+    game.physics.arcade.collide(box, platforms);
+    game.physics.arcade.overlap(player, box, function(player, box) {
+        gameOver();
+    }, null, this);
+    game.physics.arcade.collide(player, box);
+
+    if (isDead) {
+        game.physics.arcade.collide(go, screenBottom);
+    }
+
+    player.body.velocity.x = 0;
+    box.body.velocity.x = box.body.velocity.x * 0.9;
+
+    if (cursors.left.isDown)
+    {
+        player.body.velocity.x = -400;
+        player.scale.x = -1;
+        player.animations.play("walk");
+    }
+    else if (cursors.right.isDown)
+    {
+        player.body.velocity.x = 400;
+        player.scale.x = 1;
+        player.animations.play("walk");
+    } else {
+        player.animations.play("idle");
+    }
+
+    if (cursors.up.isDown && player.body.touching.down) {
+        player.body.velocity.y = -600;
+        box.body.velocity.y = -600;
+        box.body.velocity.x = -player.body.velocity.x;
+    } else if (!player.body.touching.down) {
+        player.animations.play("jump");
+    }
+}
+
+</script>
+
+</body>
+</html>
