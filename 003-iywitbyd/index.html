@@ -19,120 +19,284 @@
 
 <script type="text/javascript">
 
-var game = new Phaser.Game(840, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
-
-var player;
-var box;
-var cursors;
-var platforms;
-var screenBottom;
-
-var gravity = 1100;
-var isDead = false;
-
-var go;
-
-function preload() {
-    game.load.image("sky", "assets/sky.png");
-    game.load.image("gameover", "assets/gameover.png");
-    game.load.image("ground", "assets/ground.png");
-    game.load.image("box", "assets/bonus.png");
-    game.load.spritesheet("walk", "assets/character/walk/sheet.png", 75, 96);
-    game.load.image("idle", "assets/character/front.png");
-    game.load.image("jump", "assets/character/jump.png");
-}
+// Game constants
+var Game = {
+    w: 840,
+    h: 600,
+    gridSize: 70
+};
 
 
-function create() {
-    game.physics.startSystem(Phaser.Physics.ARCADE);
-    var sky = game.add.sprite(0,0, "sky");
-    sky.scale.setTo(2, 1);
-
-    player = game.add.sprite(200, 200, "walk");
-    player.anchor.setTo(.5, 1);
-    player.animations.add("walk", [3,4,5,6,7,8,9,10,11,12], 20, true);
-    player.animations.add("idle", [0]);
-    player.animations.add("jump", [1]);
-    player.enableBody = true;
-    game.physics.arcade.enable(player);
-    player.body.gravity.y = gravity;
-    player.body.collideWorldBounds = true;
-
-    platforms = game.add.group();
-    platforms.enableBody = true;
-
-    var groundImg = game.cache.getImage("ground");
-    for (var x=0; x < game.world.width; x += groundImg.width) {
-        var ground = platforms.create(x, game.world.height-groundImg.height, "ground");
-        ground.body.immovable = true;
-        platforms.add(ground);
+// Bootstrap
+//////////////////////////////////////////////////////////////////////////////
+Game.Boot = function (game) {
+    this.game = game;
+};
+Game.Boot.prototype = {
+    preload: function() {
+        this.game.stage.backgroundColor = '#FFF';
+        this.game.load.image('loading', 'assets/images/loading.png');
+        this.game.load.image('title', 'assets/images/title.png');
+    },
+    create: function () {
+        this.game.state.start("Load");
     }
+};
 
-    screenBottom = game.add.sprite(0, game.world.height, "ground");
-    screenBottom.enableBody = true;
-    game.physics.arcade.enable(screenBottom);
-    screenBottom.body.immovable = true;
+Game.Load = function (game) {
+    this.game = game;
+};
 
-    var boxImg = game.cache.getImage("box")
-    box = game.add.sprite(7*boxImg.width, game.world.height - 4*boxImg.height, "box");
-    box.enableBody = true;
-    game.physics.arcade.enable(box);
-    box.body.gravity.y = gravity;
-    box.body.collideWorldBounds = true;
+Game.Load.prototype = {
+    preload: function () {
+        var loadingText = this.game.add.text(Game.w, Game.h,
+                "Loading...", { font: "30px Helvetica", fill: "#000" });
+        loadingText.anchor.setTo(0.5, 0.5);
+        var preloading = this.game.add.sprite(Game.w/2 - 64, Game.h/2+50, "loading");
+        this.game.load.setPreloadSprite(preloading);
 
-    cursors = game.input.keyboard.createCursorKeys();
+        game.load.image("sky", "assets/sky.png");
+        game.load.image("gameover", "assets/gameover.png");
+        game.load.image("ground", "assets/ground.png");
+        game.load.image("box", "assets/bonus.png");
+        game.load.spritesheet("player", "assets/character/walk/sheet.png", 75, 96);
+    },
+    create: function () {
+        this.game.physics.startSystem(Phaser.Physics.ARCADE);
 
-}
-
-function gameOver() {
-    if (!isDead) {
-        go = game.add.sprite(0,-0.5*game.world.height, "gameover");
-        go.enableBody = true;
-        game.physics.arcade.enable(go);
-        go.body.gravity.y = 2*gravity;
-        go.body.bounce.y = 0.5;
+        this.game.state.start("Menu");
     }
-    isDead = true;
-}
+};
 
-function update() {
-    game.physics.arcade.collide(player, platforms);
-    game.physics.arcade.collide(box, platforms);
-    game.physics.arcade.overlap(player, box, function(player, box) {
-        gameOver();
-    }, null, this);
-    game.physics.arcade.collide(player, box);
+// Menu
+//////////////////////////////////////////////////////////////////////////////
+Game.Menu = function (game) {
+    this.game = game;
+};
+Game.Menu.prototype = {
+    create: function () {
+        var sky = this.game.add.sprite(0,0, "sky");
+        sky.scale.setTo(2, 1);
 
-    if (isDead) {
-        game.physics.arcade.collide(go, screenBottom);
+        this.title = this.game.add.sprite(Game.w/2, Game.h/2, "title");
+        this.title.anchor.setTo(0.5, 0.5);
+    },
+    update: function () {
+        // Click to start
+        if (this.game.input.activePointer.isDown) {
+            this.game.state.start("Level1");
+        }
     }
+};
 
-    player.body.velocity.x = 0;
-    box.body.velocity.x = box.body.velocity.x * 0.9;
+Game.DefaultPlayer = {
+    create: function(state) {
+        state.player = state.game.add
+        state.player = state.game.add.sprite(113, state.game.world.height - Game.gridSize, "player");
+        state.player.anchor.setTo(.5, 1);
+        state.player.animations.add("walk", [3,4,5,6,7,8,9,10,11,12], 20, true);
+        state.player.animations.add("idle", [0]);
+        state.player.animations.add("jump", [1]);
+        state.player.enableBody = true;
+        state.game.physics.arcade.enable(state.player);
+        state.player.body.gravity.y = state.gravity;
+        state.player.body.collideWorldBounds = true;
+    },
+    update: function(state) {
+        if (state.player.x+45 > game.world.width) {
+            Game.DefaultLevel.nextLevel(state);
+        }
+        state.game.physics.arcade.collide(state.player, state.platforms);
+        state.game.physics.arcade.overlap(state.player, state.box, state.retry, null, state);
+        state.game.physics.arcade.collide(state.player, state.box);
+        state.player.body.velocity.x = 0;
 
-    if (cursors.left.isDown)
-    {
-        player.body.velocity.x = -400;
-        player.scale.x = -1;
-        player.animations.play("walk");
-    }
-    else if (cursors.right.isDown)
-    {
-        player.body.velocity.x = 400;
-        player.scale.x = 1;
-        player.animations.play("walk");
-    } else {
-        player.animations.play("idle");
-    }
+        if (state.cursors.left.isDown)
+        {
+            state.player.body.velocity.x = -400;
+            state.player.scale.x = -1;
+            state.player.animations.play("walk");
+        }
+        else if (state.cursors.right.isDown)
+        {
+            state.player.body.velocity.x = 400;
+            state.player.scale.x = 1;
+            state.player.animations.play("walk");
+        } else {
+            state.player.animations.play("idle");
+        }
 
-    if (cursors.up.isDown && player.body.touching.down) {
-        player.body.velocity.y = -600;
-        box.body.velocity.y = -600;
-        box.body.velocity.x = -player.body.velocity.x;
-    } else if (!player.body.touching.down) {
-        player.animations.play("jump");
+        if (state.cursors.up.isDown && state.player.body.touching.down) {
+            state.player.body.velocity.y = -600;
+        } else if (!state.player.body.touching.down) {
+            state.player.animations.play("jump");
+        }
     }
-}
+};
+
+Game.DefaultBox = {
+    create: function(state) {
+        state.box = state.game.add.sprite(7*Game.gridSize, state.game.world.height - 4*Game.gridSize, "box");
+        state.box.enableBody = true;
+        state.game.physics.arcade.enable(state.box);
+        state.box.body.gravity.y = state.gravity;
+        state.box.body.collideWorldBounds = true;
+    },
+    update: function(state) {
+        state.game.physics.arcade.collide(state.box, state.platforms);
+    }
+};
+
+Game.DefaultLevel = {
+    create: function(state) {
+        state.gravity = 1100;
+        state.isAlive = true;
+        var sky = state.game.add.sprite(0,0, "sky");
+        sky.scale.setTo(2, 1);
+
+        var loadingText = state.game.add.text(25, 25,
+                state.game.state.current, { font: "20px Helvetica", fill: "#000" });
+
+        state.platforms = game.add.group();
+        state.platforms.enableBody = true;
+
+        state.overlay = state.game.add.graphics(0, 0);
+        state.overlay.beginFill(0x000000, 1);
+        state.overlay.drawRect(0, 0, game.world.width, game.world.height);
+        state.overlay.endFill();
+        state.overlay.alpha = 0;
+
+        state.cursors = state.game.input.keyboard.createCursorKeys();
+    },
+
+    fadeIn: function(state) {
+        state.game.world.bringToTop(state.overlay);
+        state.overlay.alpha = 1;
+        game.add.tween(state.overlay).to( {alpha: 0}, 300, Phaser.Easing.Linear.None).start();
+    },
+
+    fadeOut: function(state) {
+        state.overlay.alpha = 0;
+        var tween = game.add.tween(state.overlay).to( {alpha: 1}, 100, Phaser.Easing.Linear.None).start();
+        return tween;
+    },
+
+    retry: function(state) {
+        if (state.isAlive) {
+            this.fadeOut(state).onComplete.add(function() {
+                state.game.state.start(state.game.state.current);
+            }, state);
+        }
+        state.isAlive = false;
+    },
+
+    nextLevel: function(state) {
+        state.game.state.start("Level"+(1+1*state.game.state.current.substring(5)));
+    }
+};
+
+Game.Level1 = function (game) {
+};
+Game.Level1.prototype = {
+    create: function () {
+        Game.DefaultLevel.create(this);
+        Game.DefaultPlayer.create(this);
+        Game.DefaultBox.create(this);
+
+        // Create ground to walk on
+        for (var x=0; x < this.game.world.width; x += Game.gridSize) {
+            var ground = this.platforms.create(x, this.game.world.height-Game.gridSize, "ground");
+            ground.body.immovable = true;
+            this.platforms.add(ground);
+        }
+
+        Game.DefaultLevel.fadeIn(this);
+
+    },
+    update: function () {
+        Game.DefaultPlayer.update(this);
+        Game.DefaultBox.update(this);
+    },
+    retry: function () {
+        Game.DefaultLevel.retry(this);
+    },
+};
+
+Game.Level2 = function (game) {
+};
+Game.Level2.prototype = {
+    create: function () {
+        Game.DefaultLevel.create(this);
+        Game.DefaultPlayer.create(this);
+        Game.DefaultBox.create(this);
+
+
+        // Create ground to walk on
+        for (var x=0; x < this.game.world.width; x += Game.gridSize) {
+            var ground = this.platforms.create(x, this.game.world.height-Game.gridSize, "ground");
+            ground.body.immovable = true;
+            this.platforms.add(ground);
+        }
+
+        Game.DefaultLevel.fadeIn(this);
+
+    },
+    update: function () {
+        Game.DefaultPlayer.update(this);
+        Game.DefaultBox.update(this);
+        if (this.player.x > this.box.x
+                && this.player.x < this.box.x + Game.gridSize
+                && this.box.body.touching.down) {
+            this.box.body.velocity.y = -700;
+        }
+    },
+    retry: function () {
+        Game.DefaultLevel.retry(this);
+    },
+};
+//kuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuukkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+Game.Level3 = function (game) {
+};
+Game.Level3.prototype = {
+    create: function () {
+        Game.DefaultLevel.create(this);
+        Game.DefaultPlayer.create(this);
+        Game.DefaultBox.create(this);
+        this.box.x = 5*Game.gridSize;
+
+
+        // Create ground to walk on
+        for (var x=0; x < this.game.world.width; x += Game.gridSize) {
+            var ground = this.platforms.create(x, this.game.world.height-Game.gridSize, "ground");
+            ground.body.immovable = true;
+            this.platforms.add(ground);
+        }
+
+        Game.DefaultLevel.fadeIn(this);
+
+    },
+    update: function () {
+        Game.DefaultPlayer.update(this);
+        Game.DefaultBox.update(this);
+        if (this.player.x > this.box.x+Game.gridSize/2) {
+            this.box.x = this.player.x-Game.gridSize/2;
+        }
+    },
+    retry: function () {
+        Game.DefaultLevel.retry(this);
+    },
+};
+
+
+
+var game = new Phaser.Game(Game.w, Game.h, Phaser.AUTO, '');
+game.state.add("Boot", Game.Boot);
+game.state.add("Load", Game.Load);
+game.state.add("Menu", Game.Menu);
+game.state.add("Level1", Game.Level1);
+game.state.add("Level2", Game.Level2);
+game.state.add("Level3", Game.Level3);
+game.state.start("Boot");
 
 </script>
 
